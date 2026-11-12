@@ -42,9 +42,12 @@ function setMode(value){mode=value;controls.enabled=value==='orbit';$('carve').s
 async function load(options,name,isDemo=false){const token=++request;$('loading').hidden=false;$('spinner').hidden=false;$('retry').hidden=true;$('loadText').textContent='Die Erinnerung nimmt Form an …';$('import').disabled=true;$('demo').disabled=true;
 let candidate;
 try{candidate=new SplatMesh({...options,editable:true});await candidate.initialized;if(token!==request){candidate.dispose();return;}
-const box=candidate.getBoundingBox(),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const span=Math.max(size.x,size.y,size.z);if(!Number.isFinite(span)||span<=0)throw Error('Die Datei enthält keine nutzbaren Gaussian Splats.');
+// Robust bounds prevent isolated capture artifacts from shifting the entire scene.
+const axes=[[],[],[]];candidate.forEachSplat((i,p,sc,q,opacity)=>{if(i%31===0&&opacity>.1&&Number.isFinite(p.x+p.y+p.z)){axes[0].push(p.x);axes[1].push(p.y);axes[2].push(p.z);}});
+let box=candidate.getBoundingBox();if(axes[0].length>30){const low=[],high=[];for(const values of axes){values.sort((a,b)=>a-b);low.push(values[Math.floor(values.length*.025)]);high.push(values[Math.floor(values.length*.975)]);}box=new THREE.Box3(new THREE.Vector3(...low),new THREE.Vector3(...high));}
+const size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const span=Math.max(size.x,size.y,size.z);if(!Number.isFinite(span)||span<=0)throw Error('Die Datei enthält keine nutzbaren Gaussian Splats.');
 clear();if(mesh){scene.remove(mesh);mesh.dispose();}mesh=candidate;const scale=3/span;mesh.scale.setScalar(scale);mesh.rotation.x=Math.PI;const shift=center.clone().multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(1,0,0),Math.PI);mesh.position.copy(shift.negate());scene.add(mesh);mesh.updateMatrixWorld(true);
-controls.target.set(0,0,0);camera.position.set(0,.15,isDemo?-2.4:3.8);camera.lookAt(controls.target);controls.update();$('sceneName').textContent=name;$('loading').hidden=true;setMode('carve');
+controls.target.set(0,0,0);const fitDistance=1.65/Math.tan(camera.fov*Math.PI/360)/Math.min(camera.aspect,1);camera.position.set(0,.12,isDemo?-fitDistance:fitDistance);camera.lookAt(controls.target);controls.update();$('sceneName').textContent=name;$('loading').hidden=true;setMode('carve');
 }catch(e){candidate?.dispose();console.error(e);failure('Scan konnte nicht geladen werden. Prüfe die Verbindung oder versuche eine kleinere Gaussian-Splat-Datei. '+e.message);}finally{if(token===request){$('import').disabled=false;$('demo').disabled=false;}}
 }
 startDemo=()=>load({url:'https://storage.googleapis.com/forge-dev-public/painted_bedroom.spz'},'Beispiel: Painted Bedroom',true);
