@@ -29,7 +29,7 @@ const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true,preserveDrawi
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0x0b0b13,1);$('stage').append(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.02,100);
 const spark=new SparkRenderer({renderer});scene.add(spark);
-const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enabled=false;controls.minDistance=.2;controls.maxDistance=15;
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enabled=false;controls.minDistance=.2;controls.maxDistance=25;
 const edit=new SplatEdit({rgbaBlendMode:SplatEditRgbaBlendMode.MULTIPLY,softEdge:.045});scene.add(edit);
 const glowGroup=new THREE.Group();scene.add(glowGroup);
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();raycaster.params.Points={threshold:.06};
@@ -68,7 +68,7 @@ $('import').onclick=()=>$('file').click();$('file').onchange=async e=>{const fil
 $('demo').onclick=startDemo;$('retry').onclick=startDemo;$('flip').onclick=()=>{if(mesh){mesh.rotation.z+=Math.PI;mesh.position.applyAxisAngle(new THREE.Vector3(0,0,1),Math.PI);clear();}};
 $('capture').onclick=()=>{try{renderer.render(scene,camera);renderer.domElement.toBlob(blob=>{if(!blob){hint('Bild konnte nicht gespeichert werden.');return;}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='memory-matter.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);hint('Bild erstellt. Auf Mobilgeräten ggf. im Download-Ordner öffnen.');},'image/png');}catch(e){hint('Der Browser erlaubt für diesen Scan keinen Bildexport.');}};
 let previous=0;renderer.setAnimationLoop(time=>{const dt=Math.min((time-previous)/1000,.05);previous=time;controls.update();for(const h of holes){if(restoring){h.sdf.radius=Math.max(0,h.sdf.radius-dt*.65);h.group.scale.setScalar(h.sdf.radius/h.radius);}else if(!reduced){h.group.rotation.y+=dt*.13;h.group.rotation.z+=dt*.07;}}if(restoring&&holes.every(h=>h.sdf.radius<=0)){clear();hint('Wieder ganz. Bereit für eine neue Spur.');}renderer.render(scene,camera);});
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+addEventListener('resize',()=>{const oldAspect=camera.aspect;camera.aspect=innerWidth/innerHeight;const ratio=Math.min(oldAspect,1)/Math.min(camera.aspect,1);camera.position.sub(controls.target).multiplyScalar(ratio).add(controls.target);camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();renderer.setAnimationLoop(null);failure('Der Grafikspeicher ist voll. Seite neu laden und einen kleineren Scan verwenden.');$('retry').onclick=()=>location.reload();});
 await startDemo();
 }catch(e){console.error(e);failure('Die 3D-Ansicht konnte nicht starten. Benötigt WebGL 2 und eine Internetverbindung. '+e.message);$('retry').onclick=()=>location.reload();}
